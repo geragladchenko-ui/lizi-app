@@ -32,12 +32,17 @@ jobs:
           mkdir -p www
           cp index.html manifest.json sw.js www/ 2>/dev/null || cp index.html www/
 
-      - name: Build Android APK
+      - name: Build Android APK with Permissions
         run: |
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           npx cap init "Lizi Fire" "com.lizi.fire.assistant" --web-dir www
           npx cap add android
+
+          # Внедряем системные разрешения на микрофон и интернет в манифест Android
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.INTERNET" />' $MANIFEST
+
           npx cap copy android
           cd android
           chmod +x ./gradlew
