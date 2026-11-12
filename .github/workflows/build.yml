@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -23,24 +23,21 @@ jobs:
           distribution: 'zulu'
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Prepare Assets
         run: |
           mkdir -p www
-          cp index.html manifest.json sw.js www/
+          cp index.html manifest.json sw.js www/ || true
 
-      - name: Build Android App
+      - name: Build Android APK
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
           npx cap init "Lizi Fire" "com.lizi.fire.assistant" --web-dir www
           npx cap add android
           npx cap copy android
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
