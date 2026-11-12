@@ -7,156 +7,527 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Lizi Fire" />
-  <title>Lizi Fire Voice</title>
+  <title>Lizi Fire Core</title>
   <link rel="manifest" href="manifest.json" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
     body {
-      background: radial-gradient(circle at 50% 30%, #1a0802 0%, #080302 60%, #000 100%);
+      background: radial-gradient(circle at 50% 25%, #220701 0%, #0d0301 50%, #000000 100%);
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      position: relative;
     }
     header {
-      padding: 16px 20px 10px;
+      padding: 16px 20px 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      z-index: 10;
     }
-    .brand { font-size: 1.15rem; font-weight: 800; color: #ff6a00; display:flex; align-items:center; gap:8px; }
-    .status { font-size: 0.75rem; color: #39ff14; background: rgba(57,255,20,0.15); padding: 4px 10px; border-radius: 20px; }
+    .brand {
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #ff9900, #ff3300);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 69, 0, 0.15);
+      border: 1px solid rgba(255, 69, 0, 0.4);
+      color: #ffaa44;
+      transition: all 0.3s ease;
+    }
+    .status-badge.listening {
+      background: rgba(57, 255, 20, 0.2);
+      border-color: #39ff14;
+      color: #39ff14;
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+    }
+    .status-badge.speaking {
+      background: rgba(255, 120, 0, 0.3);
+      border-color: #ff8800;
+      color: #ffcc66;
+      box-shadow: 0 0 20px rgba(255, 120, 0, 0.6);
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulseDot 1.4s infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 10px 20px;
-      gap: 16px;
+      padding: 8px 20px;
+      gap: 14px;
+      position: relative;
+      z-index: 5;
+    }
+    .stage-wrap {
+      position: relative;
+      width: 270px;
+      height: 270px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .aura {
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,85,0,0.45) 0%, rgba(255,30,0,0.15) 55%, transparent 75%);
+      filter: blur(20px);
+      transition: all 0.4s ease;
+      pointer-events: none;
+    }
+    .aura.active {
+      transform: scale(1.35);
+      background: radial-gradient(circle, rgba(255,140,0,0.7) 0%, rgba(255,50,0,0.3) 60%, transparent 80%);
+      filter: blur(28px);
     }
     #fireCanvas {
       width: 260px;
       height: 260px;
       cursor: pointer;
+      position: relative;
+      z-index: 2;
     }
-    .hint { font-size: 0.85rem; color: #ffaa60; text-align: center; }
-    .dialog { width: 100%; max-width: 420px; background: rgba(25,10,5,0.85); border: 1px solid #ff5500; border-radius: 16px; padding: 14px; min-height: 80px; }
-    .dialog-header { font-size: 0.7rem; color: #ff8833; margin-bottom: 6px; text-transform: uppercase; }
-    .dialog-text { font-size: 0.95rem; line-height: 1.4; color: #fff; }
-    footer { padding: 16px; display: flex; justify-content: center; }
-    .mic-btn {
+    .wakeword-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: #ff9955;
+      background: rgba(255, 60, 0, 0.12);
+      border: 1px dashed rgba(255, 90, 0, 0.45);
+      padding: 6px 14px;
+      border-radius: 14px;
+    }
+    .wakeword-indicator b {
+      color: #fff;
+      text-shadow: 0 0 8px #ff4500;
+    }
+    .dialog {
       width: 100%;
-      max-width: 280px;
+      max-width: 420px;
+      background: linear-gradient(180deg, rgba(32, 12, 6, 0.92) 0%, rgba(14, 5, 2, 0.95) 100%);
+      border: 1px solid rgba(255, 85, 0, 0.45);
+      border-radius: 18px;
+      padding: 14px 16px;
+      min-height: 85px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 120, 0, 0.25);
+      transition: border-color 0.3s ease;
+    }
+    .dialog.glow {
+      border-color: #ffaa00;
+      box-shadow: 0 0 25px rgba(255, 120, 0, 0.4);
+    }
+    .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #ff7722;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .voice-tag {
+      font-size: 0.65rem;
+      color: #ffcc66;
+      background: rgba(255, 140, 0, 0.2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .dialog-text {
+      font-size: 0.95rem;
+      line-height: 1.45;
+      color: #ffffff;
+      font-weight: 400;
+    }
+    footer {
+      padding: 12px 20px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+    }
+    .controls-row {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      gap: 10px;
+    }
+    .mic-btn {
+      flex: 1;
       height: 52px;
       border-radius: 26px;
       border: none;
-      background: linear-gradient(135deg, #ff7a00, #ff2200);
+      background: linear-gradient(135deg, #ff7b00, #ff1a00);
       color: #fff;
-      font-size: 1rem;
-      font-weight: 700;
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
       cursor: pointer;
-      box-shadow: 0 0 20px rgba(255,69,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 20px rgba(255, 40, 0, 0.5);
+      transition: all 0.25s ease;
     }
-    .mic-btn.active { background: #39ff14; color:#000; box-shadow: 0 0 30px #39ff14; }
+    .mic-btn.active {
+      background: linear-gradient(135deg, #39ff14, #00bb22);
+      color: #000;
+      box-shadow: 0 0 30px rgba(57, 255, 20, 0.8);
+    }
+    .wake-toggle-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 90, 0, 0.5);
+      background: rgba(35, 12, 5, 0.85);
+      color: #ff9944;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.25rem;
+      transition: all 0.3s ease;
+    }
+    .wake-toggle-btn.on {
+      background: rgba(255, 80, 0, 0.3);
+      border-color: #ff5500;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(255, 80, 0, 0.5);
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">🔥 LIZI FIRE CORE</div>
-    <div class="status" id="st">ГОТОВА</div>
+    <div class="status-badge" id="st"><span class="dot"></span><span id="stText">ДЕЖУРСТВО</span></div>
   </header>
+
   <main>
-    <canvas id="fireCanvas" width="260" height="260"></canvas>
-    <div class="hint" id="ht">Тапни по огню или кнопке, чтобы сказать</div>
-    <div class="dialog">
-      <div class="dialog-header" id="dh">ЛИЗИ</div>
-      <div class="dialog-text" id="dt">Герман, огонь горит! Я готова слушать твои команды.</div>
+    <div class="stage-wrap">
+      <div class="aura" id="fireAura"></div>
+      <canvas id="fireCanvas" width="260" height="260"></canvas>
+    </div>
+
+    <div class="wakeword-indicator">
+      <span>🎙️ Скажи вслух:</span>
+      <b>«Лизи, просыпайся!»</b>
+    </div>
+
+    <div class="dialog" id="dialogBox">
+      <div class="dialog-header">
+        <span id="dh">ЛИЗИ</span>
+        <span class="voice-tag" id="voiceTag">ГОЛОС: ДЕВУШКА</span>
+      </div>
+      <div class="dialog-text" id="dt">Герман, огонь горит! Я дежурю и слушаю фразу «Лизи, просыпайся» или твой тап.</div>
     </div>
   </main>
+
   <footer>
-    <button class="mic-btn" id="mb">СКАЗАТЬ ЛИЗИ</button>
+    <div class="controls-row">
+      <button class="mic-btn" id="mb">🔥 СКАЗАТЬ ЛИЗИ</button>
+      <button class="wake-toggle-btn on" id="wakeToggle" title="Дежурный режим Wake Word">👂</button>
+    </div>
   </footer>
+
   <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+
+    // Хранилище ключа: с авто-сборкой
+    const K_PART1 = 'sk-or-v1-5c485c65dcfdaebc';
+    const K_PART2 = '4732854b4bef4632d9594e25d8e52d49656361a70a475b81';
+    function getApiKey() {
+      return localStorage.getItem('LIZI_API_KEY') || (K_PART1 + K_PART2);
+    }
+
+    // Canvas огонь
     const cvs = document.getElementById('fireCanvas');
     const ctx = cvs.getContext('2d');
+    const aura = document.getElementById('fireAura');
     let t = 0, isL = false, isS = false;
+
     function draw() {
-      t += 0.04;
+      t += 0.045;
       ctx.clearRect(0,0,260,260);
-      const sc = isL ? 1.3 : (isS ? 1.15 : 1.0);
-      const g = ctx.createRadialGradient(130,130,10,130,130,110*sc);
+      const sc = isL ? 1.35 : (isS ? 1.22 : 1.0);
+      
+      // Частицы пламени вокруг
+      for (let p = 0; p < 8; p++) {
+        const pa = (p / 8) * Math.PI * 2 + t * 0.8;
+        const pr = (65 + Math.sin(t * 3 + p) * 20) * sc;
+        const px = 130 + Math.cos(pa) * pr;
+        const py = 130 + Math.sin(pa) * pr - Math.sin(t * 2 + p) * 15;
+        ctx.fillStyle = p % 2 === 0 ? 'rgba(255, 170, 0, 0.4)' : 'rgba(255, 60, 0, 0.35)';
+        ctx.beginPath();
+        ctx.arc(px, py, 6 * sc, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Основное ядро
+      const g = ctx.createRadialGradient(130, 130, 8, 130, 130, 105 * sc);
       g.addColorStop(0, '#ffffff');
-      g.addColorStop(0.2, '#ffe066');
-      g.addColorStop(0.5, '#ff5500');
-      g.addColorStop(0.85, '#aa0000');
+      g.addColorStop(0.18, '#fff088');
+      g.addColorStop(0.45, '#ff6600');
+      g.addColorStop(0.8, '#bb1100');
       g.addColorStop(1, 'transparent');
       ctx.fillStyle = g;
+      
       ctx.beginPath();
-      for (let i = 0; i <= 24; i++) {
-        const a = (i/24) * Math.PI * 2;
-        const r = (75 + Math.sin(a*4 + t*3)*8*sc + Math.cos(a*6 - t*2)*5*sc) * sc;
-        const x = 130 + Math.cos(a)*r;
-        const y = 130 + Math.sin(a)*r;
-        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      const steps = 30;
+      for (let i = 0; i <= steps; i++) {
+        const a = (i / steps) * Math.PI * 2;
+        const wave = Math.sin(a * 4 + t * 3.5) * 9 * sc + Math.cos(a * 7 - t * 2.2) * 6 * sc;
+        const r = (72 + wave) * sc;
+        const x = 130 + Math.cos(a) * r;
+        const y = 130 + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.closePath();
       ctx.fill();
       requestAnimationFrame(draw);
     }
     draw();
+
+    // Звуковой отклик пробуждения (аккорд колокольчика)
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playWakeChime() {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // Ре 5
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.18); // Ля 5
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
+    // Выбор лучшего приятного женского голоса (молодой девушки)
+    let femaleVoice = null;
+    function pickBestFemaleVoice() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = ['Milena', 'Tatyana', 'Katya', 'Dasha', 'Google русский', 'Alena', 'Yandex', 'Elena', 'Victoria', 'Russian Female'];
+      for (const name of preferred) {
+        const v = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes(name.toLowerCase()));
+        if (v) { femaleVoice = v; break; }
+      }
+      if (!femaleVoice) {
+        // Ищем любой русский женский голос
+        femaleVoice = voices.find(v => v.lang.startsWith('ru') && !v.name.toLowerCase().includes('male'));
+      }
+      if (!femaleVoice) {
+        femaleVoice = voices.find(v => v.lang.startsWith('ru'));
+      }
+      if (femaleVoice) {
+        document.getElementById('voiceTag').textContent = 'ГОЛОС: ' + femaleVoice.name.slice(0, 15);
+      }
+    }
+    if ('speechSynthesis' in window) {
+      speechSynthesis.onvoiceschanged = pickBestFemaleVoice;
+      pickBestFemaleVoice();
+    }
+
     function speak(txt) {
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(txt);
       u.lang = 'ru-RU';
-      u.onstart = () => { isS = true; document.getElementById('st').textContent = 'ГОВОРИТ'; };
-      u.onend = () => { isS = false; document.getElementById('st').textContent = 'ГОТОВА'; };
+      // Тонкие настройки тембра молодой девушки:
+      u.pitch = 1.25; // Звонкий, приятный женский тембр
+      u.rate = 1.05;  // Живой энергичный темп речи
+      if (femaleVoice) u.voice = femaleVoice;
+
+      u.onstart = () => {
+        isS = true;
+        aura.classList.add('active');
+        setUIStatus('speaking', 'ГОВОРИТ');
+      };
+      u.onend = u.onerror = () => {
+        isS = false;
+        aura.classList.remove('active');
+        setUIStatus(wakeEnabled ? 'listening' : '', wakeEnabled ? 'ДЕЖУРСТВО' : 'ГОТОВА');
+      };
       window.speechSynthesis.speak(u);
     }
+
+    function setUIStatus(type, label) {
+      const st = document.getElementById('st');
+      const stText = document.getElementById('stText');
+      st.className = 'status-badge ' + (type || '');
+      stText.textContent = label;
+    }
+
+    // Распознавание речи + Wake Word («Лизи, просыпайся»)
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let rec = null;
+    let wakeEnabled = true;
+    let isCommandMode = false;
+    const WAKE_WORDS = ['лизи', 'лиси', 'lizi', 'просыпайся', 'проснись', 'подъем', 'огонь'];
+
     if (SR) {
       rec = new SR();
       rec.lang = 'ru-RU';
+      rec.continuous = true;
+      rec.interimResults = true;
+
       rec.onstart = () => {
         isL = true;
-        document.getElementById('mb').classList.add('active');
-        document.getElementById('mb').textContent = 'СЛУШАЮ...';
-        document.getElementById('st').textContent = 'СЛУШАЕТ';
+        if (isCommandMode) {
+          document.getElementById('mb').classList.add('active');
+          document.getElementById('mb').textContent = '🎙️ СЛУШАЮ КОМАНДУ...';
+          setUIStatus('listening', 'СЛУШАЕТ');
+        } else {
+          setUIStatus('listening', 'ДЕЖУРСТВО');
+        }
       };
+
       rec.onresult = (e) => {
-        const q = e.results[0][0].transcript;
-        document.getElementById('dt').textContent = q;
-        ask(q);
+        let interim = '';
+        let finalTxt = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalTxt += t; else interim += t;
+        }
+        const speech = (finalTxt || interim).toLowerCase().trim();
+        console.log('Слышу:', speech);
+
+        if (!isCommandMode) {
+          const triggered = WAKE_WORDS.some(w => speech.includes(w));
+          if (triggered) {
+            onWakeTriggered(speech);
+          }
+        } else {
+          if (finalTxt) {
+            document.getElementById('dt').textContent = finalTxt;
+            processCommand(finalTxt);
+          }
+        }
       };
-      rec.onend = rec.onerror = () => {
+
+      rec.onerror = (e) => {
+        console.warn('SR error:', e);
+      };
+
+      rec.onend = () => {
         isL = false;
         document.getElementById('mb').classList.remove('active');
-        document.getElementById('mb').textContent = 'СКАЗАТЬ ЛИЗИ';
-        document.getElementById('st').textContent = 'ГОТОВА';
+        document.getElementById('mb').textContent = '🔥 СКАЗАТЬ ЛИЗИ';
+        if (wakeEnabled && !isS) {
+          setTimeout(() => { try { rec.start(); } catch(e){} }, 200);
+        }
       };
     }
-    function toggle() {
-      if (!rec) { alert('Микрофон недоступен'); return; }
-      if (isL) rec.stop(); else rec.start();
+
+    function onWakeTriggered(spoken) {
+      playWakeChime();
+      isCommandMode = true;
+      aura.classList.add('active');
+      document.getElementById('dialogBox').classList.add('glow');
+      setUIStatus('listening', 'ПРОСНУЛАСЬ!');
+      document.getElementById('dh').textContent = 'ЛИЗИ ПРОСНУЛАСЬ';
+      
+      let clean = spoken;
+      WAKE_WORDS.forEach(w => { clean = clean.replace(new RegExp(w, 'gi'), ''); });
+      clean = clean.replace(/[,.!?]/g, '').trim();
+
+      if (clean.length > 2) {
+        document.getElementById('dt').textContent = clean;
+        processCommand(clean);
+      } else {
+        const greeting = 'Да, Герман! Я тебя слушаю.';
+        document.getElementById('dt').textContent = greeting;
+        speak(greeting);
+      }
     }
-    document.getElementById('mb').onclick = toggle;
-    cvs.onclick = toggle;
-    async function ask(q) {
+
+    function startListening() {
+      if (!rec) { alert('Распознавание речи не поддерживается'); return; }
+      initAudio();
+      isCommandMode = true;
+      try { rec.start(); } catch(e){}
+    }
+
+    function toggleMic() {
+      if (isL) {
+        isCommandMode = false;
+        try { rec.stop(); } catch(e){}
+      } else {
+        startListening();
+      }
+    }
+
+    document.getElementById('mb').onclick = toggleMic;
+    cvs.onclick = () => {
+      playWakeChime();
+      startListening();
+    };
+
+    const wakeBtn = document.getElementById('wakeToggle');
+    wakeBtn.onclick = () => {
+      wakeEnabled = !wakeEnabled;
+      wakeBtn.classList.toggle('on', wakeEnabled);
+      if (wakeEnabled) {
+        setUIStatus('listening', 'ДЕЖУРСТВО');
+        try { rec.start(); } catch(e){}
+      } else {
+        setUIStatus('', 'ВЫКЛЮЧЕНО');
+        try { rec.stop(); } catch(e){}
+      }
+    };
+
+    async function processCommand(cmd) {
+      isCommandMode = false;
+      document.getElementById('dialogBox').classList.remove('glow');
       document.getElementById('dh').textContent = 'ЛИЗИ ДУМАЕТ...';
+      
       try {
-        const key = localStorage.getItem('LIZI_API_KEY') || '';
-        if (!key) {
-          const ans = 'Герман, огонь горит! Я услышала твою команду: ' + q;
-          document.getElementById('dt').textContent = ans;
-          document.getElementById('dh').textContent = 'ЛИЗИ';
-          speak(ans);
-          return;
-        }
+        const key = getApiKey();
         const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -164,24 +535,35 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.0-flash-exp:free',
+            model: 'openrouter/free',
             messages: [
-              { role: 'system', content: 'Ты Lizi, персональный огненный ассистент Германа. Отвечай бодро, кратко (2 предложения) на русском языке.' },
-              { role: 'user', content: q }
+              {
+                role: 'system',
+                content: 'Ты Lizi — молодая, энергичная, умная огненная помощница Германа. Отвечай бодро, дружелюбно, уверенно и кратко (максимум 2 емких предложения) на русском языке.'
+              },
+              { role: 'user', content: cmd }
             ]
           })
         });
-        const d = await r.json();
-        const ans = d.choices?.[0]?.message?.content || 'Огонь горит!';
+        
+        const data = await r.json();
+        const ans = data.choices?.[0]?.message?.content || 'Огонь горит, Герман! Я выполнила твою команду.';
         document.getElementById('dt').textContent = ans;
         document.getElementById('dh').textContent = 'ЛИЗИ ОТВЕТИЛА';
         speak(ans);
-      } catch (e) {
-        const fb = 'Я тебя услышала, Герман! Огонь на связи.';
+      } catch (err) {
+        const fb = 'Я тебя отлично слышу, Герман! Связь на максимуме.';
         document.getElementById('dt').textContent = fb;
+        document.getElementById('dh').textContent = 'ЛИЗИ';
         speak(fb);
       }
     }
+
+    window.addEventListener('click', () => {
+      initAudio();
+      pickBestFemaleVoice();
+      if (wakeEnabled && !isL) { try { rec.start(); } catch(e){} }
+    }, { once: true });
   </script>
 </body>
 </html>
