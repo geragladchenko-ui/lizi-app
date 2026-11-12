@@ -17,11 +17,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: Setup Java JDK 17
+      - name: Setup Java JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: 17
+          java-version: 21
+
+      - name: Accept Android Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Prepare Web Assets
         run: |
@@ -31,7 +35,7 @@ jobs:
       - name: Build Android APK
         run: |
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           npx cap init "Lizi Fire" "com.lizi.fire.assistant" --web-dir www
           npx cap add android
           npx cap copy android
