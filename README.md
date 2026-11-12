@@ -1,3 +1,3 @@
-# Lizi Fire Voice Assistant
+# Lizi Fire Core — APK Pipeline
 
-Огненный голосовой ассистент Лизи для Android и Web.
+Инструкции и сборочные манифесты для Android APK.
