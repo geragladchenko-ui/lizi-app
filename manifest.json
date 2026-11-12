@@ -1,24 +1,25 @@
 {
   "short_name": "Lizi Fire",
   "name": "Lizi Fire Voice Assistant",
-  "description": "Огненный голосовой ассистент Лизи",
+  "id": "/lizi-app/",
+  "start_url": "/lizi-app/",
+  "scope": "/lizi-app/",
+  "display": "standalone",
+  "background_color": "#080402",
+  "theme_color": "#ff4500",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192.png",
-      "type": "image/png",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%23080402'/%3E%3Ccircle cx='96' cy='96' r='60' fill='%23ff3b00' filter='drop-shadow(0 0 20px %23ff8800)'/%3E%3Ccircle cx='96' cy='96' r='35' fill='%23ff9900'/%3E%3Ccircle cx='96' cy='96' r='18' fill='%23ffffff'/%3E%3C/svg%3E",
       "sizes": "192x192",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
-      "type": "image/png",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%23080402'/%3E%3Ccircle cx='256' cy='256' r='160' fill='%23ff3b00' filter='drop-shadow(0 0 40px %23ff8800)'/%3E%3Ccircle cx='256' cy='256' r='90' fill='%23ff9900'/%3E%3Ccircle cx='256' cy='256' r='45' fill='%23ffffff'/%3E%3C/svg%3E",
       "sizes": "512x512",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ],
-  "start_url": "./index.html",
-  "background_color": "#080402",
-  "theme_color": "#ff4500",
-  "display": "standalone",
-  "orientation": "portrait"
+  ]
 }
