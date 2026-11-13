@@ -31,15 +31,14 @@ jobs:
       - name: Prepare web files
         shell: bash
         run: |
-          set -e
-
-          mkdir -p www
+          set -euo pipefail
 
           if [ ! -f index.html ]; then
             echo "Ошибка: файл index.html не найден"
             exit 1
           fi
 
+          mkdir -p www
           cp index.html www/index.html
 
           if [ -f manifest.json ]; then
@@ -50,10 +49,209 @@ jobs:
             cp sw.js www/sw.js
           fi
 
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("www/index.html")
+          html = path.read_text(encoding="utf-8")
+
+          bridge = r'''
+          <script>
+          (function () {
+            "use strict";
+
+            let lastSpeechText = "";
+
+            function speakText(text) {
+              text = String(text || "").trim();
+
+              if (!text) {
+                return;
+              }
+
+              lastSpeechText = text;
+
+              if (
+                window.LiziNative &&
+                typeof window.LiziNative.speak === "function"
+              ) {
+                try {
+                  window.LiziNative.speak(text);
+                  return;
+                } catch (error) {
+                  console.warn("Native TTS error:", error);
+                }
+              }
+
+              if (
+                "speechSynthesis" in window &&
+                "SpeechSynthesisUtterance" in window
+              ) {
+                try {
+                  window.speechSynthesis.cancel();
+
+                  const utterance =
+                    new SpeechSynthesisUtterance(text);
+
+                  utterance.lang = "ru-RU";
+                  utterance.rate = 0.96;
+                  utterance.pitch = 0.98;
+
+                  window.speechSynthesis.speak(utterance);
+                } catch (error) {
+                  console.warn("Browser TTS error:", error);
+                }
+              }
+            }
+
+            window.liziSpeak = speakText;
+
+            function hookSpeechSynthesis() {
+              if (!("speechSynthesis" in window)) {
+                return;
+              }
+
+              const synthesis = window.speechSynthesis;
+              const originalSpeak = synthesis.speak.bind(synthesis);
+
+              synthesis.speak = function (utterance) {
+                const text = utterance && utterance.text
+                  ? utterance.text
+                  : "";
+
+                if (text.trim()) {
+                  lastSpeechText = text;
+                }
+
+                if (
+                  window.LiziNative &&
+                  typeof window.LiziNative.speak === "function"
+                ) {
+                  speakText(text);
+                } else {
+                  originalSpeak(utterance);
+                }
+              };
+            }
+
+            function createSpeakerButton() {
+              if (
+                document.getElementById("lizi-native-speaker")
+              ) {
+                return;
+              }
+
+              const button = document.createElement("button");
+
+              button.id = "lizi-native-speaker";
+              button.type = "button";
+              button.textContent = "🔊";
+              button.title = "Озвучить последний ответ";
+
+              Object.assign(button.style, {
+                position: "fixed",
+                right: "16px",
+                bottom: "88px",
+                zIndex: "2147483647",
+                width: "54px",
+                height: "54px",
+                border: "1px solid rgba(255,255,255,.25)",
+                borderRadius: "50%",
+                background: "#ff6500",
+                color: "#ffffff",
+                fontSize: "24px",
+                boxShadow: "0 4px 18px rgba(255,90,0,.45)"
+              });
+
+              button.addEventListener("click", function () {
+                if (lastSpeechText) {
+                  speakText(lastSpeechText);
+                } else {
+                  speakText("Пока нет ответа для озвучивания");
+                }
+              });
+
+              document.body.appendChild(button);
+            }
+
+            function createBackgroundButton() {
+              if (
+                document.getElementById("lizi-native-background")
+              ) {
+                return;
+              }
+
+              const button = document.createElement("button");
+
+              button.id = "lizi-native-background";
+              button.type = "button";
+              button.textContent = "👂 ФОН";
+              button.title = "Включить фоновое дежурство";
+
+              Object.assign(button.style, {
+                position: "fixed",
+                right: "16px",
+                bottom: "24px",
+                zIndex: "2147483647",
+                padding: "10px 14px",
+                border: "1px solid rgba(255,255,255,.25)",
+                borderRadius: "18px",
+                background: "#24242b",
+                color: "#ffffff",
+                fontSize: "13px",
+                boxShadow: "0 4px 18px rgba(0,0,0,.35)"
+              });
+
+              button.addEventListener("click", function () {
+                if (
+                  window.LiziNative &&
+                  typeof window.LiziNative.startVoiceService ===
+                    "function"
+                ) {
+                  window.LiziNative.startVoiceService();
+                  button.textContent = "👂 ФОН ВКЛЮЧЕН";
+                } else {
+                  alert("Нативная служба недоступна");
+                }
+              });
+
+              document.body.appendChild(button);
+            }
+
+            function initializeLiziNative() {
+              hookSpeechSynthesis();
+              createSpeakerButton();
+              createBackgroundButton();
+            }
+
+            if (document.readyState === "loading") {
+              document.addEventListener(
+                "DOMContentLoaded",
+                initializeLiziNative
+              );
+            } else {
+              initializeLiziNative();
+            }
+          })();
+          </script>
+          '''
+
+          if "</body>" in html:
+            html = html.replace(
+              "</body>",
+              bridge + "\n</body>",
+              1
+            )
+          else:
+            html = html + bridge
+
+          path.write_text(html, encoding="utf-8")
+          PY
+
       - name: Install Capacitor
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           npm init -y
 
@@ -72,6 +270,315 @@ jobs:
       - name: Create Android native files
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
-          JAVA_DIR="android/app/sr
+          python3 - <<'PY'
+          from pathlib import Path
+
+          java_dir = Path(
+              "android/app/src/main/java/com/lizi/fire/assistant"
+          )
+
+          drawable_dir = Path(
+              "android/app/src/main/res/drawable"
+          )
+
+          java_dir.mkdir(parents=True, exist_ok=True)
+          drawable_dir.mkdir(parents=True, exist_ok=True)
+
+          files = {
+              "android/app/src/main/res/drawable/ic_lizi_flame.xml": r'''<?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+
+              <path
+                  android:fillColor="#0B0B10"
+                  android:pathData="M54,4A50,50 0,1 0,54 104A50,50 0,1 0,54 4" />
+
+              <path
+                  android:fillColor="#FF5A00"
+                  android:pathData="M54,91C36,91 25,80 25,65C25,52 34,43 42,35C48,29 50,21 49,14C65,23 72,34 69,46C78,42 83,49 83,61C83,78 71,91 54,91Z" />
+
+              <path
+                  android:fillColor="#FFB300"
+                  android:pathData="M54,82C43,82 37,75 37,66C37,58 43,52 49,47C53,43 54,38 53,33C63,40 66,47 64,56C70,53 74,58 74,65C74,75 66,82 54,82Z" />
+
+              <path
+                  android:fillColor="#FFF3B0"
+                  android:pathData="M54,73C49,73 46,70 46,65C46,61 49,58 52,55C54,53 55,50 54,47C60,51 62,55 61,59C64,58 66,61 66,65C66,70 61,73 54,73Z" />
+          </vector>
+          ''',
+
+              "android/app/src/main/java/com/lizi/fire/assistant/MainActivity.java": r'''package com.lizi.fire.assistant;
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.speech.tts.TextToSpeech;
+          import android.speech.tts.Voice;
+          import android.webkit.JavascriptInterface;
+
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+
+          import com.getcapacitor.BridgeActivity;
+
+          import java.util.ArrayList;
+          import java.util.List;
+          import java.util.Locale;
+
+          public class MainActivity extends BridgeActivity {
+              private static final int REQUEST_PERMISSIONS = 6101;
+
+              @Override
+              public void onCreate(Bundle state) {
+                  super.onCreate(state);
+
+                  getBridge()
+                      .getWebView()
+                      .addJavascriptInterface(
+                          new LiziNativeBridge(this),
+                          "LiziNative"
+                      );
+
+                  new Handler(Looper.getMainLooper()).postDelayed(
+                      this::requestRequiredPermissions,
+                      900
+                  );
+              }
+
+              private void requestRequiredPermissions() {
+                  List<String> permissions = new ArrayList<>();
+
+                  if (
+                      Build.VERSION.SDK_INT >= 23 &&
+                      ContextCompat.checkSelfPermission(
+                          this,
+                          Manifest.permission.RECORD_AUDIO
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+                      permissions.add(Manifest.permission.RECORD_AUDIO);
+                  }
+
+                  if (
+                      Build.VERSION.SDK_INT >= 33 &&
+                      ContextCompat.checkSelfPermission(
+                          this,
+                          Manifest.permission.POST_NOTIFICATIONS
+                      ) != PackageManager.PERMISSION_GRANTED
+                  ) {
+                      permissions.add(
+                          Manifest.permission.POST_NOTIFICATIONS
+                      );
+                  }
+
+                  if (!permissions.isEmpty()) {
+                      ActivityCompat.requestPermissions(
+                          this,
+                          permissions.toArray(new String[0]),
+                          REQUEST_PERMISSIONS
+                      );
+                  } else {
+                      startVoiceService(this);
+                  }
+              }
+
+              @Override
+              public void onRequestPermissionsResult(
+                  int requestCode,
+                  String[] permissions,
+                  int[] results
+              ) {
+                  super.onRequestPermissionsResult(
+                      requestCode,
+                      permissions,
+                      results
+                  );
+
+                  if (requestCode == REQUEST_PERMISSIONS) {
+                      if (
+                          ContextCompat.checkSelfPermission(
+                              this,
+                              Manifest.permission.RECORD_AUDIO
+                          ) == PackageManager.PERMISSION_GRANTED
+                      ) {
+                          startVoiceService(this);
+                      }
+                  }
+              }
+
+              public static void startVoiceService(Context context) {
+                  Intent intent = new Intent(
+                      context,
+                      VoiceService.class
+                  );
+
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      context.startForegroundService(intent);
+                  } else {
+                      context.startService(intent);
+                  }
+              }
+
+              public static void stopVoiceService(Context context) {
+                  context.stopService(
+                      new Intent(context, VoiceService.class)
+                  );
+              }
+
+              public static class LiziNativeBridge {
+                  private final Activity activity;
+                  private TextToSpeech tts;
+                  private boolean ttsReady = false;
+
+                  LiziNativeBridge(Activity activity) {
+                      this.activity = activity;
+
+                      tts = new TextToSpeech(
+                          activity.getApplicationContext(),
+                          status -> {
+                              if (status == TextToSpeech.SUCCESS) {
+                                  ttsReady = true;
+
+                                  try {
+                                      tts.setLanguage(
+                                          new Locale("ru", "RU")
+                                      );
+
+                                      tts.setSpeechRate(0.96f);
+                                      tts.setPitch(0.98f);
+
+                                      Voice selectedVoice = null;
+
+                                      for (
+                                          Voice voice : tts.getVoices()
+                                      ) {
+                                          Locale locale = voice.getLocale();
+
+                                          if (
+                                              "ru".equals(
+                                                  locale.getLanguage()
+                                              )
+                                          ) {
+                                              if (
+                                                  selectedVoice == null
+                                              ) {
+                                                  selectedVoice = voice;
+                                              }
+                                          }
+                                      }
+
+                                      if (selectedVoice != null) {
+                                          tts.setVoice(selectedVoice);
+                                      }
+                                  } catch (Exception ignored) {
+                                  }
+                              }
+                          }
+                      );
+                  }
+
+                  @JavascriptInterface
+                  public void speak(String text) {
+                      if (
+                          text == null ||
+                          text.trim().isEmpty()
+                      ) {
+                          return;
+                      }
+
+                      activity.runOnUiThread(() -> {
+                          if (!ttsReady || tts == null) {
+                              return;
+                          }
+
+                          try {
+                              tts.stop();
+
+                              tts.speak(
+                                  text.trim(),
+                                  TextToSpeech.QUEUE_FLUSH,
+                                  null,
+                                  "lizi-answer"
+                              );
+                          } catch (Exception ignored) {
+                          }
+                      });
+                  }
+
+                  @JavascriptInterface
+                  public void startVoiceService() {
+                      activity.runOnUiThread(() ->
+                          MainActivity.startVoiceService(activity)
+                      );
+                  }
+
+                  @JavascriptInterface
+                  public void stopVoiceService() {
+                      activity.runOnUiThread(() ->
+                          MainActivity.stopVoiceService(activity)
+                      );
+                  }
+              }
+          }
+          ''',
+
+              "android/app/src/main/java/com/lizi/fire/assistant/VoiceService.java": r'''package com.lizi.fire.assistant;
+
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.Service;
+          import android.content.Intent;
+          import android.content.pm.ServiceInfo;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.IBinder;
+          import android.os.Looper;
+          import android.speech.RecognitionListener;
+          import android.speech.RecognizerIntent;
+          import android.speech.SpeechRecognizer;
+          import android.speech.tts.TextToSpeech;
+
+          import androidx.core.app.NotificationCompat;
+
+          import java.util.ArrayList;
+          import java.util.Locale;
+
+          public class VoiceService extends Service {
+              private static final int NOTIFICATION_ID = 4451;
+              private static final String CHANNEL_ID =
+                  "lizi_microphone";
+
+              private SpeechRecognizer recognizer;
+              private Intent recognizerIntent;
+              private Handler handler;
+              private TextToSpeech tts;
+              private boolean destroyed = false;
+              private boolean speaking = false;
+
+              @Override
+              public void onCreate() {
+                  super.onCreate();
+
+                  handler = new Handler(Looper.getMainLooper());
+
+                  createNotificationChannel();
+                  startForegroundNotification();
+
+                  tts = new TextToSpeech(
+                      getApplicationContext(),
+                      status -> {
+                          if (status == TextToSpeech.SUCCESS) {
+                              try {
+                                  tts.setLanguage(
