@@ -250,9 +250,9 @@
     <div class="dialog" id="dialogBox">
       <div class="dialog-header">
         <span id="dh">ЛИЗИ</span>
-        <span class="voice-tag" id="voiceTag">ГОЛОС: ДЕВУШКА</span>
+        <span class="voice-tag" id="voiceTag">ГОЛОС: БАРХАТ</span>
       </div>
-      <div class="dialog-text" id="dt">Герман, огонь горит! Я дежурю и слушаю фразу «Лизи, просыпайся» или твой тап.</div>
+      <div class="dialog-text" id="dt">Герман, огонь горит! Я дежурю в полной тишине и слушаю фразу «Лизи, просыпайся».</div>
     </div>
   </main>
 
@@ -279,86 +279,80 @@
     const cvs = document.getElementById('fireCanvas');
     const ctx = cvs.getContext('2d');
     const aura = document.getElementById('fireAura');
-    let t = 0, isL = false, isS = false;
 
-    function draw() {
-      t += 0.045;
-      ctx.clearRect(0,0,260,260);
-      const sc = isL ? 1.35 : (isS ? 1.22 : 1.0);
-      
-      // Частицы пламени вокруг
-      for (let p = 0; p < 8; p++) {
-        const pa = (p / 8) * Math.PI * 2 + t * 0.8;
-        const pr = (65 + Math.sin(t * 3 + p) * 20) * sc;
-        const px = 130 + Math.cos(pa) * pr;
-        const py = 130 + Math.sin(pa) * pr - Math.sin(t * 2 + p) * 15;
-        ctx.fillStyle = p % 2 === 0 ? 'rgba(255, 170, 0, 0.4)' : 'rgba(255, 60, 0, 0.35)';
-        ctx.beginPath();
-        ctx.arc(px, py, 6 * sc, 0, Math.PI * 2);
-        ctx.fill();
+    let isL = false;
+    let isS = false;
+    let particles = [];
+    const NUM_PARTICLES = 65;
+
+    class Particle {
+      constructor() {
+        this.reset(true);
       }
-
-      // Основное ядро
-      const g = ctx.createRadialGradient(130, 130, 8, 130, 130, 105 * sc);
-      g.addColorStop(0, '#ffffff');
-      g.addColorStop(0.18, '#fff088');
-      g.addColorStop(0.45, '#ff6600');
-      g.addColorStop(0.8, '#bb1100');
-      g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g;
-      
-      ctx.beginPath();
-      const steps = 30;
-      for (let i = 0; i <= steps; i++) {
-        const a = (i / steps) * Math.PI * 2;
-        const wave = Math.sin(a * 4 + t * 3.5) * 9 * sc + Math.cos(a * 7 - t * 2.2) * 6 * sc;
-        const r = (72 + wave) * sc;
-        const x = 130 + Math.cos(a) * r;
-        const y = 130 + Math.sin(a) * r;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      reset(initial = false) {
+        this.x = 130 + (Math.random() - 0.5) * 60;
+        this.y = initial ? 130 + (Math.random() - 0.5) * 80 : 190;
+        this.vx = (Math.random() - 0.5) * 1.8;
+        this.vy = -(1.5 + Math.random() * 2.8);
+        this.size = 14 + Math.random() * 20;
+        this.life = 1;
+        this.decay = 0.015 + Math.random() * 0.02;
+        this.hue = 15 + Math.random() * 35;
       }
-      ctx.closePath();
-      ctx.fill();
-      requestAnimationFrame(draw);
-    }
-    draw();
-
-    // Звуковой отклик пробуждения (аккорд колокольчика)
-    let audioCtx = null;
-    function initAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-
-    function playWakeChime() {
-      try {
-        initAudio();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // Ре 5
-        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.18); // Ля 5
-        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
-      } catch (e) {}
+      update(speedBoost) {
+        this.x += this.vx;
+        this.y += this.vy * speedBoost;
+        this.life -= this.decay;
+        this.size = Math.max(0, this.size - 0.25);
+        if (this.life <= 0) {
+          this.reset(false);
+        }
+      }
+      draw(c) {
+        c.save();
+        c.globalAlpha = Math.max(0, this.life * 0.85);
+        c.globalCompositeOperation = 'lighter';
+        const g = c.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+        g.addColorStop(0, `hsla(${this.hue + 15}, 100%, 80%, 1)`);
+        g.addColorStop(0.4, `hsla(${this.hue}, 100%, 50%, 0.8)`);
+        g.addColorStop(1, 'hsla(0, 100%, 20%, 0)');
+        c.fillStyle = g;
+        c.beginPath();
+        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
     }
 
-    // Выбор лучшего приятного женского голоса (молодой девушки)
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+      particles.push(new Particle());
+    }
+
+    function renderLoop() {
+      ctx.clearRect(0, 0, 260, 260);
+      const boost = (isL || isS) ? 1.8 : 1.0;
+      for (let p of particles) {
+        p.update(boost);
+        p.draw(ctx);
+      }
+      requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    // Звуковой отклик: полностью заглушен, никаких звонов при дежурстве!
+    function playWakeChime() {}
+
+    // Выбор лучшего глубокого женского голоса
     let femaleVoice = null;
     function pickBestFemaleVoice() {
       if (!('speechSynthesis' in window)) return;
       const voices = window.speechSynthesis.getVoices();
-      const preferred = ['Milena', 'Tatyana', 'Katya', 'Dasha', 'Google русский', 'Alena', 'Yandex', 'Elena', 'Victoria', 'Russian Female'];
+      const preferred = ['Milena', 'Tatyana', 'Katya', 'Alena', 'Google русский', 'Elena', 'Victoria', 'Russian Female'];
       for (const name of preferred) {
         const v = voices.find(v => v.lang.startsWith('ru') && v.name.toLowerCase().includes(name.toLowerCase()));
         if (v) { femaleVoice = v; break; }
       }
       if (!femaleVoice) {
-        // Ищем любой русский женский голос
         femaleVoice = voices.find(v => v.lang.startsWith('ru') && !v.name.toLowerCase().includes('male'));
       }
       if (!femaleVoice) {
@@ -373,14 +367,14 @@
       pickBestFemaleVoice();
     }
 
+    // Тонкие настройки тембра: глубокий, бархатный, женственный
     function speak(txt) {
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(txt);
       u.lang = 'ru-RU';
-      // Тонкие настройки тембра молодой девушки:
-      u.pitch = 1.25; // Звонкий, приятный женский тембр
-      u.rate = 1.05;  // Живой энергичный темп речи
+      u.pitch = 0.98; // Глубокий, мягкий грудной тембр
+      u.rate = 0.96;  // Плавный, уверенный темп
       if (femaleVoice) u.voice = femaleVoice;
 
       u.onstart = () => {
@@ -403,11 +397,26 @@
       stText.textContent = label;
     }
 
+    // Удержание экрана активным (Wake Lock API)
+    let wakeLock = null;
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {}
+    }
+    requestWakeLock();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') requestWakeLock();
+    });
+
     // Распознавание речи + Wake Word («Лизи, просыпайся»)
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let rec = null;
     let wakeEnabled = true;
     let isCommandMode = false;
+    let restartTimer = null;
     const WAKE_WORDS = ['лизи', 'лиси', 'lizi', 'просыпайся', 'проснись', 'подъем', 'огонь'];
 
     if (SR) {
@@ -454,18 +463,22 @@
         console.warn('SR error:', e);
       };
 
+      // Бесшумный перезапуск без системного спама
       rec.onend = () => {
         isL = false;
         document.getElementById('mb').classList.remove('active');
         document.getElementById('mb').textContent = '🔥 СКАЗАТЬ ЛИЗИ';
+        
         if (wakeEnabled && !isS) {
-          setTimeout(() => { try { rec.start(); } catch(e){} }, 200);
+          clearTimeout(restartTimer);
+          restartTimer = setTimeout(() => {
+            try { rec.start(); } catch(e){}
+          }, 800);
         }
       };
     }
 
     function onWakeTriggered(spoken) {
-      playWakeChime();
       isCommandMode = true;
       aura.classList.add('active');
       document.getElementById('dialogBox').classList.add('glow');
@@ -488,7 +501,6 @@
 
     function startListening() {
       if (!rec) { alert('Распознавание речи не поддерживается'); return; }
-      initAudio();
       isCommandMode = true;
       try { rec.start(); } catch(e){}
     }
@@ -504,7 +516,6 @@
 
     document.getElementById('mb').onclick = toggleMic;
     cvs.onclick = () => {
-      playWakeChime();
       startListening();
     };
 
@@ -539,7 +550,7 @@
             messages: [
               {
                 role: 'system',
-                content: 'Ты Lizi — молодая, энергичная, умная огненная помощница Германа. Отвечай бодро, дружелюбно, уверенно и кратко (максимум 2 емких предложения) на русском языке.'
+                content: 'Ты Lizi — чувственная, умная огненная помощница Германа. Отвечай мягко, уверенно, кратко и строго по делу на русском языке.'
               },
               { role: 'user', content: cmd }
             ]
@@ -560,8 +571,8 @@
     }
 
     window.addEventListener('click', () => {
-      initAudio();
       pickBestFemaleVoice();
+      requestWakeLock();
       if (wakeEnabled && !isL) { try { rec.start(); } catch(e){} }
     }, { once: true });
   </script>
